@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raid Schedule</title>
+<style>
+  :root {
+    --bg: #0f1218; --panel: #171b24; --panel2: #1d222d; --line: #262c39;
+    --text: #e8ebf2; --muted: #8b93a7; --accent: #8aa4ff;
+    --np: #6fcf97; --un: #f2c94c; --aol: #6ea8fe;
+    --hour: 56px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -.01em; }
+  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn { background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 8px 14px;
+    border-radius: 10px; cursor: pointer; font: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #0b1020; font-weight: 600; }
+  .btn.discord { background: #5865f2; border-color: #5865f2; font-weight: 600; }
+  .seg { display: inline-flex; gap: 0; }
+  .seg .btn { border-radius: 0; }
+  .seg .btn:first-child { border-radius: 10px 0 0 10px; }
+  .seg .btn:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
+  .layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+  .hosts { display: flex; flex-direction: column; gap: 12px; }
+  .host { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 12px; padding: 14px; }
+  .host h3 { margin: 0 0 2px; font-size: 16px; }
+  .host p { margin: 0; color: var(--muted); font-size: 13px; }
+  .host .tag { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--c); }
+  .host.off { opacity: .4; }
+  .host .join { display: block; margin-top: 10px; padding: 7px 10px; border-radius: 8px; background: #5865f2;
+    color: #fff; text-align: center; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .host .join:hover { background: #4752c4; }
+  .host { cursor: pointer; }
+  .calendar { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .weekhead { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .weekhead b { font-size: 16px; }
+  .weekhead span { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 52px repeat(7, 1fr); }
+  .dayhead { padding: 10px 6px; text-align: center; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); font-weight: 600; background: var(--panel2); }
+  .dayhead small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .dayhead.today { color: var(--accent); }
+  .corner { background: var(--panel2); border-bottom: 1px solid var(--line); }
+  .times { position: relative; }
+  .times div { position: absolute; right: 8px; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
+  .col { position: relative; border-left: 1px solid var(--line);
+    background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hour); }
+  .ev { position: absolute; left: 3px; right: 3px; border-radius: 8px; padding: 6px 8px; overflow: hidden;
+    background: color-mix(in srgb, var(--c) 22%, var(--panel)); border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+    text-decoration: none; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+  .ev:hover { background: color-mix(in srgb, var(--c) 34%, var(--panel)); z-index: 2; }
+  .ev b { font-size: 13px; line-height: 1.2; }
+  .ev .t { color: var(--muted); font-size: 11.5px; }
+  .ev .s { margin-top: auto; font-size: 11.5px; display: flex; align-items: center; gap: 6px; }
+  .bar { flex: 1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--c) 25%, transparent); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c); }
+  .agenda { display: none; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  footer { margin-top: 20px; color: var(--muted); font-size: 12.5px; text-align: center; }
+  .sample { background: #3a2a10; color: #f2c94c; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 14px; display: none; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .hosts { flex-direction: row; overflow-x: auto; }
+    .host { min-width: 220px; }
+    .grid { display: none; }
+    .agenda { display: block; }
+    .agenda .day { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .agenda h4 { margin: 0 0 8px; font-size: 14px; }
+    .agenda .day .ev { position: static; margin-bottom: 6px; padding: 10px; }
+    .agenda .day.none h4 { color: var(--muted); font-weight: 400; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Raid Schedule<small id="sub"></small></h1>
+    <div class="controls">
+      <div class="seg" id="weekSeg">
+        <button class="btn on" data-w="0">This week</button>
+        <button class="btn" data-w="1">Next week</button>
+      </div>
+      <div class="seg" id="tzSeg">
+        <button class="btn on" data-tz="st">Server time</button>
+        <button class="btn" data-tz="local">My time</button>
+      </div>
+    </div>
+  </header>
+  <div class="sample" id="sample">Showing sample data. Live events will appear once the feed is connected.</div>
+  <div class="layout">
+    <aside class="hosts" id="hosts"></aside>
+    <main class="calendar">
+      <div class="weekhead"><b id="range"></b><span id="tzlabel"></span></div>
+      <div class="grid" id="grid"></div>
+      <div class="agenda" id="agenda"></div>
+    </main>
+  </div>
+  <footer>Click an event to sign up on Discord. Times update automatically from Raid-Helper.</footer>
+</div>
+
+<script>
+// ---------- config ----------
+const CONFIG = {
+  serverTZ: 'UTC',              // what "ST" means (matches the in-game clock); change if the realm uses another zone
+  dayStartHour: 12,             // a schedule "day" runs 12:00 -> 12:00 next day
+  discordInvite: 'https://discord.gg/UU2zpu7DX2',
+  dataUrl: 'https://script.google.com/macros/s/AKfycbzmKqbRtxAlYbyTDp0AuvTNa8xuIzOBzkiM5Q4qdtC79mzDjlCfjHsMjpZjhZF9b8sE/exec'
+};
+const HOSTS = {
+  nonprofit: { name: 'The Non Profit', color: 'var(--np)', vibe: 'Chill, more social.', discord: 'https://discord.gg/UU2zpu7DX2' },
+  unsullied: { name: 'Unsullied', color: 'var(--un)', vibe: 'Quick, concise, reliable. Super experienced, runs lots of pugs. No BS.', discord: '' },
+  aol:       { name: 'Alliance of Lordaeron', color: 'var(--aol)', vibe: 'Laid back and chill, similar vibe to The Non Profit.', discord: '' }
+};
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+// ---------- time helpers ----------
+function parts(date, tz) {
+  const f = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const o = {}; f.formatToParts(date).forEach(p => o[p.type] = +p.value);
+  return o;
+}
+function zonedToDate(y, m, d, h, mi, tz) {            // wall time in tz -> real Date
+  let guess = new Date(Date.UTC(y, m - 1, d, h, mi));
+  const p = parts(guess, tz);
+  const seen = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
+  return new Date(guess.getTime() - (seen - guess.getTime()));
+}
+function gamingDay(date, tz) {                          // Date at UTC midnight representing the schedule day
+  const p = parts(new Date(date.getTime() - CONFIG.dayStartHour * 3600e3), tz);
+  return Date.UTC(p.year, p.month - 1, p.day);
+}
+function mondayOf(dayMs) {
+  const wd = (new Date(dayMs).getUTCDay() + 6) % 7;
+  return dayMs - wd * 86400e3;
+}
+const fmtTime = (date, tz) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
+const fmtDay = ms => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(new Date(ms));
+
+// ---------- sample data (mirrors the current sheet) ----------
+function sampleEvents() {
+  const tz = CONFIG.serverTZ;
+  const mon = mondayOf(gamingDay(new Date(), tz));
+  const ev = (week, day, h, mi, mins, host, title, signups, cap) => {
+    const d = new Date(mon + (week * 7 + day) * 86400e3);
+    const start = zonedToDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), h, mi, tz);
+    return { id: `${week}-${day}-${h}${mi}`, title, host, start: start.toISOString(), durationMin: mins,
+             signups, capacity: cap, url: CONFIG.discordInvite };
+  };
+  const out = [];
+  for (const w of [0, 1]) {
+    out.push(
+      ev(w, 0, 17, 0, 90, 'unsullied', 'Unsullied MC Team 2', 38, 40),
+      ev(w, 0, 18, 30, 30, 'unsullied', 'Unsullied Ony Team 2', 22, 40),
+      ev(w, 3, 17, 0, 90, 'unsullied', 'Unsullied MC Team 3 (freshest SR)', 12, 40),
+      ev(w, 5, 17, 0, 120, 'nonprofit', 'The Non Profit MC', 29, 40),
+      ev(w, 5, 20, 30, 120, 'aol', 'Alliance of Lordaeron MC', 31, 40),
+      ev(w, 5, 22, 30, 60, 'aol', 'Alliance of Lordaeron Ony', 18, 40),
+      ev(w, 6, 17, 0, 90, 'unsullied', 'Unsullied MC Team 1', 40, 40),
+      ev(w, 6, 18, 30, 30, 'unsullied', 'Unsullied Ony Team 1', 35, 40)
+    );
+  }
+  return out;
+}
+
+// ---------- state & render ----------
+const state = { week: 0, tz: 'st', events: [], hidden: new Set() };
+const $ = id => document.getElementById(id);
+
+function viewTZ() { return state.tz === 'st' ? CONFIG.serverTZ : Intl.DateTimeFormat().resolvedOptions().timeZone; }
+
+function render() {
+  const tz = viewTZ();
+  const today = gamingDay(new Date(), tz);
+  const monday = mondayOf(today) + state.week * 7 * 86400e3;
+  const evs = state.events
+    .map(e => ({ ...e, s: new Date(e.start), e: new Date(new Date(e.start).getTime() + (e.durationMin || 120) * 60e3) }))
+    .filter(e => { const d = gamingDay(e.s, tz); return d >= monday && d < monday + 7 * 86400e3; })
+    .sort((a, b) => a.s - b.s);
+
+  $('range').textContent = `${fmtDay(monday)} – ${fmtDay(monday + 6 * 86400e3)}`;
+  $('tzlabel').textContent = state.tz === 'st' ? 'Server time (ST)' : `Your time (${tz.replace('_', ' ')})`;
+
+  // hosts
+  $('hosts').innerHTML = Object.entries(HOSTS).map(([k, h]) => {
+    const n = evs.filter(e => e.host === k).length;
+    return `<div class="host ${state.hidden.has(k) ? 'off' : ''}" data-h="${k}" style="--c:${h.color}">
+      <h3>${h.name}</h3><p>${h.vibe}</p><span class="tag">${n} event${n === 1 ? '' : 's'} this view</span>
+      ${h.discord ? `<a class="join" href="${h.discord}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join their Discord</a>` : ''}</div>`;
+  }).join('');
+  document.querySelectorAll('.host').forEach(el => el.onclick = () => {
+    const k = el.dataset.h; state.hidden.has(k) ? state.hidden.delete(k) : state.hidden.add(k); render();
+  });
+
+  const shown = evs.filter(e => !state.hidden.has(e.host));
+  const dayIdx = e => Math.round((gamingDay(e.s, tz) - monday) / 86400e3);
+  const offset = (date, dayMs) => {                      // hours since the day's 12:00 start
+    const p = parts(date, tz);
+    const wall = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
+    return (wall - dayMs) / 3600e3 - CONFIG.dayStartHour;
+  };
+
+  // visible hour window
+  let lo = 24, hi = 0;
+  shown.forEach(e => { const d = gamingDay(e.s, tz);
+    lo = Math.min(lo, offset(e.s, d)); hi = Math.max(hi, offset(e.e, d)); });
+  if (!shown.length) { lo = 4; hi = 12; }
+  lo = Math.max(0, Math.floor(lo) - 0); hi = Math.min(24, Math.ceil(hi) + 1);
+  const H = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hour')) || 56;
+
+  const label = h => String((h + CONFIG.dayStartHour) % 24).padStart(2, '0') + ':00';
+  const todayIdx = Math.round((today - monday) / 86400e3);
+
+  let html = '<div class="corner"></div>';
+  for (let i = 0; i < 7; i++) html += `<div class="dayhead ${i === todayIdx ? 'today' : ''}">${DAYS[i].slice(0, 3)}<small>${fmtDay(monday + i * 86400e3)}</small></div>`;
+  html += `<div class="times" style="height:${(hi - lo) * H}px">` +
+    Array.from({ length: hi - lo + 1 }, (_, i) => `<div style="top:${i * H}px">${label(lo + i)}</div>`).join('') + '</div>';
+  for (let i = 0; i < 7; i++) {
+    const cell = shown.filter(e => dayIdx(e) === i).map(e => evHTML(e, tz, offset(e.s, monday + i * 86400e3) - lo, H)).join('');
+    html += `<div class="col" style="height:${(hi - lo) * H}px">${cell}</div>`;
+  }
+  $('grid').innerHTML = html;
+
+  // mobile agenda
+  $('agenda').innerHTML = DAYS.map((d, i) => {
+    const list = shown.filter(e => dayIdx(e) === i);
+    return `<div class="day ${list.length ? '' : 'none'}"><h4>${d}, ${fmtDay(monday + i * 86400e3)}${list.length ? '' : ' — no raids'}</h4>` +
+      list.map(e => evHTML(e, tz, null, H)).join('') + '</div>';
+  }).join('');
+}
+
+function evHTML(e, tz, topHours, H) {
+  const h = HOSTS[e.host] || { color: 'var(--accent)', name: e.host };
+  const pct = e.capacity ? Math.min(100, Math.round(e.signups / e.capacity * 100)) : 0;
+  const pos = topHours === null ? '' : `top:${topHours * H}px;height:${Math.max(28, (e.durationMin || 120) / 60 * H - 3)}px;`;
+  return `<a class="ev" style="--c:${h.color};${pos}" href="${e.url}" target="_blank" rel="noopener">
+    <b>${e.title}</b>
+    <span class="t">${fmtTime(e.s, tz)}–${fmtTime(e.e, tz)}</span>
+    <span class="s"><span>${e.signups}${e.capacity ? ' / ' + e.capacity : ''}</span>${e.capacity ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ''}</span>
+  </a>`;
+}
+
+// ---------- boot ----------
+document.querySelectorAll('#weekSeg .btn').forEach(b => b.onclick = () => {
+  state.week = +b.dataset.w; document.querySelectorAll('#weekSeg .btn').forEach(x => x.classList.toggle('on', x === b)); render();
+});
+document.querySelectorAll('#tzSeg .btn').forEach(b => b.onclick = () => {
+  state.tz = b.dataset.tz; document.querySelectorAll('#tzSeg .btn').forEach(x => x.classList.toggle('on', x === b)); render();
+});
+$('sub').textContent = 'The Non Profit · Unsullied · Alliance of Lordaeron';
+
+fetch(CONFIG.dataUrl, { cache: 'no-store' })
+  .then(r => { if (!r.ok) throw 0; return r.json(); })
+  .then(d => { state.events = d.events || d; })
+  .catch(() => { state.events = sampleEvents(); $('sample').style.display = 'block'; })
+  .finally(render);
+</script>
+</body>
+</html>
