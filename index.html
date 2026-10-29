@@ -51,8 +51,12 @@
   .corner { background: var(--panel2); border-bottom: 1px solid var(--line); }
   .times { position: relative; }
   .times div { position: absolute; right: 8px; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
-  .col { position: relative; border-left: 1px solid var(--line);
+  .times .skip { letter-spacing: 2px; }
+  .col { position: relative; border-left: 1px solid var(--line); }
+  .band { position: absolute; left: 0; right: 0;
     background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hour); }
+  .gapband { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--line) 60%, transparent) 6px 7px); }
   .ev { position: absolute; left: 3px; right: 3px; border-radius: 8px; padding: 6px 8px; overflow: hidden;
     background: color-mix(in srgb, var(--c) 22%, var(--panel)); border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
     text-decoration: none; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
@@ -117,7 +121,7 @@ const CONFIG = {
 const HOSTS = {
   nonprofit: { name: 'The Non Profit', color: 'var(--np)', vibe: 'Chill, more social.', discord: 'https://discord.gg/UU2zpu7DX2' },
   unsullied: { name: 'Unsullied', color: 'var(--un)', vibe: 'Quick, concise, reliable. Super experienced, runs lots of pugs. No BS.', discord: 'https://discord.gg/7yaNrEJ6XW' },
-  aol:       { name: 'Alliance of Lordaeron', color: 'var(--aol)', vibe: 'Laid back and chill, similar vibe to The Non Profit.', discord: '' }
+  aol:       { name: 'Alliance of Lordaeron', color: 'var(--aol)', vibe: 'Laid back and chill, similar vibe to The Non Profit.', discord: 'https://discord.gg/f9QUewYFES' }
 };
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
@@ -208,24 +212,46 @@ function render() {
     return (wall - dayMs) / 3600e3 - CONFIG.dayStartHour;
   };
 
-  // visible hour window
-  let lo = 24, hi = 0;
-  shown.forEach(e => { const d = gamingDay(e.s, tz);
-    lo = Math.min(lo, offset(e.s, d)); hi = Math.max(hi, offset(e.e, d)); });
-  if (!shown.length) { lo = 4; hi = 12; }
-  lo = Math.max(0, Math.floor(lo) - 0); hi = Math.min(24, Math.ceil(hi) + 1);
+  // Visible hours: only hours touched by an event. Long empty stretches collapse into a thin gap.
   const H = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hour')) || 56;
+  const GAP = 30;
+  const seen = new Set();
+  shown.forEach(e => { const d = gamingDay(e.s, tz);
+    for (let h = Math.floor(offset(e.s, d)); h < Math.ceil(offset(e.e, d)); h++) seen.add(h); });
+  if (!seen.size) for (let h = 5; h < 12; h++) seen.add(h);
+  const hrs = [...seen].sort((a, b) => a - b);
+  const filled = [];                                    // a single empty hour between events isn't collapsed
+  hrs.forEach((h, i) => { if (i && h - hrs[i - 1] === 2) filled.push(h - 1); filled.push(h); });
+
+  const blocks = [];
+  filled.forEach(h => {
+    const last = blocks[blocks.length - 1];
+    if (last && h === last.end) last.end = h + 1; else blocks.push({ start: h, end: h + 1 });
+  });
+  let y = 0;
+  blocks.forEach((b, i) => { b.top = y; y += (b.end - b.start) * H + (i < blocks.length - 1 ? GAP : 0); });
+  const total = y;
+  const posOf = x => {
+    const b = blocks.find(b => x >= b.start && x <= b.end) || blocks[blocks.length - 1];
+    return b.top + (x - b.start) * H;
+  };
+  const gaps = blocks.slice(0, -1).map((b, i) => ({ top: b.top + (b.end - b.start) * H, skipped: blocks[i + 1].start - b.end }));
 
   const label = h => String((h + CONFIG.dayStartHour) % 24).padStart(2, '0') + ':00';
   const todayIdx = Math.round((today - monday) / 86400e3);
+  const bands = blocks.map(b => `<div class="band" style="top:${b.top}px;height:${(b.end - b.start) * H}px"></div>`).join('') +
+    gaps.map(g => `<div class="gapband" style="top:${g.top}px;height:${GAP}px"></div>`).join('');
 
   let html = '<div class="corner"></div>';
   for (let i = 0; i < 7; i++) html += `<div class="dayhead ${i === todayIdx ? 'today' : ''}">${DAYS[i].slice(0, 3)}<small>${fmtDay(monday + i * 86400e3)}</small></div>`;
-  html += `<div class="times" style="height:${(hi - lo) * H}px">` +
-    Array.from({ length: hi - lo + 1 }, (_, i) => `<div style="top:${i * H}px">${label(lo + i)}</div>`).join('') + '</div>';
+  html += `<div class="times" style="height:${total}px">` +
+    blocks.map(b => Array.from({ length: b.end - b.start + 1 }, (_, i) =>
+      `<div style="top:${b.top + i * H}px">${label(b.start + i)}</div>`).join('')).join('') +
+    gaps.map(g => `<div class="skip" style="top:${g.top + GAP / 2}px">···</div>`).join('') + '</div>';
   for (let i = 0; i < 7; i++) {
-    const cell = shown.filter(e => dayIdx(e) === i).map(e => evHTML(e, tz, offset(e.s, monday + i * 86400e3) - lo, H)).join('');
-    html += `<div class="col" style="height:${(hi - lo) * H}px">${cell}</div>`;
+    const cell = shown.filter(e => dayIdx(e) === i)
+      .map(e => evHTML(e, tz, posOf(offset(e.s, monday + i * 86400e3)) / H, H)).join('');
+    html += `<div class="col" style="height:${total}px">${bands}${cell}</div>`;
   }
   $('grid').innerHTML = html;
 
